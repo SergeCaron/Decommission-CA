@@ -56,82 +56,82 @@ Param()
 
 ## Do we have a toolset?
 Try {
-    Write-Host "Please wait..."
-    Import-Module pspki -ErrorAction Stop
+	Write-Host "Please wait..."
+	Import-Module pspki -ErrorAction Stop
 }
 Catch {
-    Write-Host ""
-    Write-Host "Error: Please install the PowerShell PKI Module from PKI Solutions inc."
-    Write-Host "       (https://www.pkisolutions.com/tools/pspki/)"
-    Write-Host "       You may also have to install Windows Management Framework 5.1."
-    Write-Host ""
-    Exit 911
+	Write-Host ""
+	Write-Host "Error: Please install the PowerShell PKI Module from PKI Solutions inc."
+	Write-Host "       (https://www.pkisolutions.com/tools/pspki/)"
+	Write-Host "       You may also have to install Windows Management Framework 5.1."
+	Write-Host ""
+	Exit 911
 }
 
 ## Enumerate all Certification Authorities and display their status
 Try {
-    [System.Object[]] $CAs = Get-CertificationAuthority -ErrorAction Stop
-    $CAs | Get-EnterprisePKIHealthStatus | Format-Table *
+	[System.Object[]] $CAs = Get-CertificationAuthority -ErrorAction Stop
+	$CAs | Get-EnterprisePKIHealthStatus | Format-Table *
 }
 Catch {
-    Write-Host "There are no Certification Authority active on this network."
-    Exit 911
+	Write-Host "There are no Certification Authority active on this network."
+	Exit 911
 }
 
 ## Get the retiring Certification Authority
 If ($CAs.Count -eq 1) {
-    $RetiringCA = $CAs[0]
+	$RetiringCA = $CAs[0]
 }
 Else {
-    Do { $Candidate = Read-Host "Please enter 0-based index of retiring Certification Authority" }
-    While ($Candidate -lt 0 -or $Candidate -ge $CAs.Count)
-    $RetiringCA = $CAs[$Candidate]
+	Do { $Candidate = Read-Host "Please enter 0-based index of retiring Certification Authority" }
+	While ($Candidate -lt 0 -or $Candidate -ge $CAs.Count)
+	$RetiringCA = $CAs[$Candidate]
 }
 
 ## Get access to the Root Certificate on the Certification Authority server
 $LocalMachine = ([System.Net.Dns]::GetHostByName(($env:computerName))).HostName
 If ($RetiringCA.ComputerName -eq $LocalMachine) {
-    $CertToExport = Get-ChildItem -Path cert:\LocalMachine\My | Where-Object { $_.SerialNumber -eq $RetiringCA.Certificate.SerialNumber }
-    If ($CertToExport.Count -eq 1) {
-        ## Get destination folder
-        [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
-        $FolderName = New-Object System.Windows.Forms.FolderBrowserDialog
-        $FolderName.Description = "Select folder to export Root Certification Authority Certificate and Key "
-        $FolderName.rootfolder = "MyComputer"
+	$CertToExport = Get-ChildItem -Path cert:\LocalMachine\My | Where-Object { $_.SerialNumber -eq $RetiringCA.Certificate.SerialNumber }
+	If ($CertToExport.Count -eq 1) {
+		## Get destination folder
+		[System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
+		$FolderName = New-Object System.Windows.Forms.FolderBrowserDialog
+		$FolderName.Description = "Select folder to export Root Certification Authority Certificate and Key "
+		$FolderName.rootfolder = "MyComputer"
 
-        ## Warn the user if we are not saving the root certificate and key
-        if ($FolderName.ShowDialog() -eq "OK") {
+		## Warn the user if we are not saving the root certificate and key
+		if ($FolderName.ShowDialog() -eq "OK") {
 
-            ## Create the full path for this certificate
-            $CertOutputFileName = $CertToExport.DnsNameList[0].Unicode
-            $CertFullPath = Join-Path -Path $FolderName.SelectedPath -ChildPath "Export-$CertOutputFileName.pfx"
+			## Create the full path for this certificate
+			$CertOutputFileName = $CertToExport.DnsNameList[0].Unicode
+			$CertFullPath = Join-Path -Path $FolderName.SelectedPath -ChildPath "Export-$CertOutputFileName.pfx"
 
-            ## Get a confirmed password (or die!)
-            DO {
-                $SecurePassword = Read-Host -Prompt "Enter password for $CertFullPath" -AsSecureString
-                $ConfirmationPassword = Read-Host -Prompt "Confirm password" -AsSecureString
-            } While ( [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePassword)) `
-                    -cne [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($ConfirmationPassword)) )
+			## Get a confirmed password (or die!)
+			DO {
+				$SecurePassword = Read-Host -Prompt "Enter password for $CertFullPath" -AsSecureString
+				$ConfirmationPassword = Read-Host -Prompt "Confirm password" -AsSecureString
+			} While ( [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePassword)) `
+					-cne [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($ConfirmationPassword)) )
 
-            # Export PFX certificate along with private key
-            Export-PfxCertificate -Cert $CertToExport -FilePath $CertFullPath -Password $SecurePassword -Verbose
+			# Export PFX certificate along with private key
+			Export-PfxCertificate -Cert $CertToExport -FilePath $CertFullPath -Password $SecurePassword -Verbose
 			
-            Backup-CARoleService -Path $FolderName.SelectedPath -Force -Password $SecurePassword
-            Write-Warning "A backup of the CA was also stored in the destination folder using the same password."
+			Backup-CARoleService -Path $FolderName.SelectedPath -Force -Password $SecurePassword
+			Write-Warning "A backup of the CA was also stored in the destination folder using the same password."
 
-        }
-        Else {
-            Write-Host "Caution: You have elected not to save the Root Certificate and Key."
-            Write-Host "         Proceed at your own risk."
-        }
-    }
-    Else {
-        Write-Host "Caution: Unable to export $RetiringCA Root Certificate and Key"
-        Write-Host "         Proceed at your own risk."
-    }
+		}
+		Else {
+			Write-Host "Caution: You have elected not to save the Root Certificate and Key."
+			Write-Host "         Proceed at your own risk."
+		}
+	}
+	Else {
+		Write-Host "Caution: Unable to export $RetiringCA Root Certificate and Key"
+		Write-Host "         Proceed at your own risk."
+	}
 }
 Else {
-    Write-Host "Caution: $RetiringCA is a remote system. Proceed at your risk."
+	Write-Host "Caution: $RetiringCA is a remote system. Proceed at your risk."
 }
 
 ## Get explicit confirmation from the user
@@ -154,40 +154,40 @@ Start-Sleep -s 15
 ## Deny pending request
 [System.Object[]] $PendingCertificates = $RetiringCA | Get-PendingRequest
 If ($PendingCertificates.Count -ge 1) {
-    $PendingCertificates | Deny-CertificateRequest
-    Write-Host "Notice: some pending certificate requests denied."
+	$PendingCertificates | Deny-CertificateRequest
+	Write-Host "Notice: some pending certificate requests denied."
 }
 
 ## Get oldest expiration date of revoked certificates
 [System.Object[]] $RevokedCertificates = $RetiringCA | Get-RevokedRequest -Property NotAfter
 If ($RevokedCertificates.Count -ge 1) {
-    $TargetExpirationDate = ($RevokedCertificates | Measure-Object -Property NotAfter -Maximum).Maximum
+	$TargetExpirationDate = ($RevokedCertificates | Measure-Object -Property NotAfter -Maximum).Maximum
 }
 Else {
-    $TargetExpirationDate = $RevocationDate
+	$TargetExpirationDate = $RevocationDate
 }
 
 ## Revoke all outstanding certificates
 [System.Object[]] $ActiveCertificates = $RetiringCA | Get-IssuedRequest
 If ($ActiveCertificates.Count -ge 1) {
-    $ExpirationDate = ($ActiveCertificates | Measure-Object -Property NotAfter -Maximum).Maximum
-    If ($ExpirationDate -lt $RevocationDate) {
-        Write-Host "Notice: All outstanding certificates are already expired."
-        $ExpirationDate = $RevocationDate
-    }
-    $ActiveCertificates | Revoke-Certificate -Reason "CeaseOfOperation" -RevocationDate $RevocationDate
+	$ExpirationDate = ($ActiveCertificates | Measure-Object -Property NotAfter -Maximum).Maximum
+	If ($ExpirationDate -lt $RevocationDate) {
+		Write-Host "Notice: All outstanding certificates are already expired."
+		$ExpirationDate = $RevocationDate
+	}
+	$ActiveCertificates | Revoke-Certificate -Reason "CeaseOfOperation" -RevocationDate $RevocationDate
 }
 else {
-    Write-Host "Notice: There are no outstanding certificates."
-    $ExpirationDate = $RevocationDate
+	Write-Host "Notice: There are no outstanding certificates."
+	$ExpirationDate = $RevocationDate
 }
 
 ## Compute a lifetime for the next Certificate Revocation List
 If ($TargetExpirationDate -gt $ExpirationDate) {
-    $Duration = ($TargetExpirationDate - $RevocationDate).Days + 1
+	$Duration = ($TargetExpirationDate - $RevocationDate).Days + 1
 }
 Else {
-        $Duration = ($ExpirationDate - $RevocationDate).Days + 1
+	$Duration = ($ExpirationDate - $RevocationDate).Days + 1
 }
 
 ## Update the Certification Authority
