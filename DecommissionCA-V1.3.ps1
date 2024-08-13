@@ -187,7 +187,7 @@ If ($TargetExpirationDate -gt $ExpirationDate) {
     $Duration = ($TargetExpirationDate - $RevocationDate).Days + 1
 }
 Else {
-    $Duration = ($ExpirationDate - $RevocationDate).Days + 1
+        $Duration = ($ExpirationDate - $RevocationDate).Days + 1
 }
 
 ## Update the Certification Authority
