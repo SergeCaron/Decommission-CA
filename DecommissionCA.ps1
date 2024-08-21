@@ -12,9 +12,9 @@
  
 .TAGS decommission CA SBS 2008 SBS 2011 Windows Server 2012 R2 Essentials Windows Server 2016 R2 Essentials
  
-.LICENSEURI https://www.gnu.org/licenses/gpl-3.0.en.html
+#.LICENSEURI [System.Uri] 'https://www.gnu.org/licenses/gpl-3.0.en.html'
  
-.PROJECTURI https://github.com/SergeCaron/Decommission-CA
+#.PROJECTURI [System.Uri] 'https://github.com/SergeCaron/Decommission-CA'
  
 #.ICONURI
  
